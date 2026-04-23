@@ -4,8 +4,10 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import shlex
 import subprocess
 import sys
+import tempfile
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,19 +16,16 @@ from typing import Any
 # These defaults are safe starting points, but operators can override them via
 # environment variables when adapting the helper to a different witness setup.
 DEFAULT_GUARD_RPC_URL = os.getenv("BLURT_GUARD_RPC_URL", "https://rpc.beblurt.com")
-DEFAULT_WITNESS_OWNER = os.getenv("BLURT_WITNESS_OWNER", "drakernoise")
-DEFAULT_WITNESS_URL = os.getenv("BLURT_WITNESS_URL", "https://drakernoise.com/blurt_witness/")
+DEFAULT_WITNESS_OWNER = os.getenv("BLURT_WITNESS_OWNER", "")
+DEFAULT_WITNESS_URL = os.getenv("BLURT_WITNESS_URL", "")
 DEFAULT_CONTAINER_NAME = os.getenv("BLURT_WITNESS_CONTAINER", "blurt-witness")
-DEFAULT_SAFETY_SECONDS = int(os.getenv("BLURT_WITNESS_SAFE_MARGIN_SECONDS", "90"))
+DEFAULT_SAFETY_SECONDS = int(os.getenv("BLURT_WITNESS_SAFE_MARGIN_SECONDS", "45"))
 DEFAULT_WALLET_FILE = os.getenv("BLURT_WITNESS_WALLET_FILE", "wallet.json")
 
 NULL_SIGNING_KEY = "BLT1111111111111111111111111111111114T1Anm"
 # Override this when the active witness signing public key for the deployment
 # differs from the reference one used by @drakernoise.
-ACTIVE_SIGNING_KEY = os.getenv(
-    "BLURT_ACTIVE_WITNESS_SIGNING_KEY",
-    "BLT8JWfXPbAvspezg7h2R7ijBwxmGUKscaB75Mag23fu5hikGaMjM",
-)
+ACTIVE_SIGNING_KEY = os.getenv("BLURT_ACTIVE_WITNESS_SIGNING_KEY", "")
 SLOT_SECONDS = 3
 
 # Canonical defaults. They can be overridden globally with BLURT_WITNESS_PROPS_JSON
@@ -92,6 +91,17 @@ def resolve_secrets_file() -> Path:
     )
 
 
+def require_setting(value: str, env_name: str) -> str:
+    resolved = value.strip()
+    if resolved:
+        return resolved
+
+    raise RuntimeError(
+        f"{env_name} is required for this workflow. "
+        f"Set {env_name} explicitly in the environment or secrets file."
+    )
+
+
 def load_active_key() -> str:
     env_path = resolve_secrets_file()
     active_key = ""
@@ -124,6 +134,9 @@ def resolve_container_name(container_name: str | None = None) -> str:
     preferred = [name for name in names if name == DEFAULT_CONTAINER_NAME]
     if preferred:
         return preferred[0]
+
+    if "blurtd-go" in names:
+        return "blurtd-go"
 
     suffix_matches = [name for name in names if name.endswith("_blurt-witness")]
     if len(suffix_matches) == 1:
@@ -221,6 +234,7 @@ def compute_slot_window(
     owner: str = DEFAULT_WITNESS_OWNER,
     safe_margin_seconds: int = DEFAULT_SAFETY_SECONDS,
 ) -> SlotWindow:
+    owner = require_setting(owner, "BLURT_WITNESS_OWNER")
     props = get_dynamic_global_properties(rpc_url)
     schedule = get_witness_schedule(rpc_url)
     shuffled = schedule.get("current_shuffled_witnesses") or []
@@ -230,6 +244,12 @@ def compute_slot_window(
     current_aslot = int(props.get("current_aslot", 0))
     current_witness = str(props.get("current_witness", ""))
     schedule_size = len(shuffled)
+    max_safe_margin_seconds = (schedule_size - 1) * SLOT_SECONDS
+    if safe_margin_seconds >= max_safe_margin_seconds:
+        raise RuntimeError(
+            f"Configured safe margin {safe_margin_seconds}s is impossible for this schedule; "
+            f"it must be lower than the maximum witness rotation gap of {max_safe_margin_seconds}s."
+        )
 
     next_slot_number = None
     for slot_offset in range(1, schedule_size + 1):
@@ -303,6 +323,9 @@ def cli_wallet_update_witness(
     witness_url: str = DEFAULT_WITNESS_URL,
     container_name: str | None = None,
 ) -> None:
+    owner = require_setting(owner, "BLURT_WITNESS_OWNER")
+    witness_url = require_setting(witness_url, "BLURT_WITNESS_URL")
+    signing_key = require_setting(signing_key, "BLURT_ACTIVE_WITNESS_SIGNING_KEY")
     active_key = load_active_key()
     wallet_password = os.getenv("BLURT_WITNESS_WALLET_PASSWORD", secrets.token_urlsafe(24))
     props_json = json.dumps(load_witness_props(), separators=(",", ":"))
@@ -315,21 +338,40 @@ def cli_wallet_update_witness(
         f'update_witness "{owner}" "{witness_url}" "{signing_key}" {props_json} true',
     ]
     input_str = "\n".join(commands) + "\n"
-
-    process = subprocess.Popen(
-        ["docker", "exec", "-i", resolved_container_name, "/usr/bin/cli_wallet"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+    command = (
+        "docker exec -i "
+        f"{shlex.quote(resolved_container_name)} "
+        "/usr/bin/cli_wallet -s ws://127.0.0.1:8090"
     )
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as handle:
+        handle.write(input_str)
+        input_path = handle.name
     try:
-        stdout, stderr = process.communicate(input=input_str, timeout=60)
+        process = subprocess.run(
+            ["script", "-qefc", command, "/dev/null"],
+            stdin=open(input_path, "r", encoding="utf-8"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=60,
+            check=False,
+        )
     except subprocess.TimeoutExpired as exc:
-        process.kill()
         raise RuntimeError("cli_wallet timed out while updating witness") from exc
+    finally:
+        try:
+            os.unlink(input_path)
+        except FileNotFoundError:
+            pass
 
-    if process.returncode != 0 and "transaction_id" not in stdout:
+    stdout, stderr = process.stdout, process.stderr
+    success_markers = (
+        "transaction_id",
+        '"block_num":',
+        '"expired":false',
+        "broadcast_transaction",
+    )
+    if process.returncode != 0 or not any(marker in stdout for marker in success_markers):
         raise RuntimeError(
             f"cli_wallet failed with code {process.returncode}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
         )

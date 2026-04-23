@@ -19,7 +19,7 @@ def main() -> int:
         description="Disable a witness only when the current schedule window is considered safe."
     )
     parser.add_argument("--rpc-url", default=DEFAULT_GUARD_RPC_URL)
-    parser.add_argument("--witness", default=DEFAULT_WITNESS_OWNER)
+    parser.add_argument("--witness", default=DEFAULT_WITNESS_OWNER, help="Witness account name.")
     parser.add_argument("--container-name")
     parser.add_argument("--safe-margin-seconds", type=int, default=DEFAULT_SAFETY_SECONDS)
     args = parser.parse_args()

@@ -3,7 +3,7 @@ from botocore.client import Config
 import os
 
 # Configuration
-ENDPOINT = 'https://images.drakernoise.com'
+ENDPOINT = 'https://media.drakernoise.com'
 ACCESS_KEY = 'YOUR_ACCESS_KEY'
 SECRET_KEY = 'YOUR_SECRET_KEY'
 BUCKET_NAME = 'public-assets'
@@ -22,10 +22,9 @@ def upload_image(file_path):
         # Upload file
         s3.upload_file(file_path, BUCKET_NAME, file_name)
         
-        # Generate Public URL
-        url = f"{ENDPOINT}/{BUCKET_NAME}/{file_name}"
-        print(f"Successfully uploaded: {url}")
-        return url
+        print("Successfully uploaded object to bucket.")
+        print("Public delivery URL depends on your bucket policy and gateway mapping.")
+        return f"s3://{BUCKET_NAME}/{file_name}"
         
     except Exception as e:
         print(f"Error uploading file: {e}")

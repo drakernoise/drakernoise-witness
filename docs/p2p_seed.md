@@ -14,4 +14,9 @@ p2p-seed-node = 136.243.80.162:1776
 
 - **Location**: Germany (Hetzner)
 - **Bandwidth**: 1Gbps Uplink
-- **Version**: Blurt 0.8.2 (Latest)
+- **Role**: Public BLURT seed for peer discovery
+
+## Notes
+
+- Treat this as a convenience seed, not as the only peer in your witness config.
+- Keep multiple healthy peers in your setup.

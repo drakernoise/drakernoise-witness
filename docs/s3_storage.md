@@ -1,19 +1,19 @@
-# Decentralized Storage (IS3)
+# Decentralized Storage (S3-Compatible)
 
-We afford an S3-compatible object storage service powered by **MinIO**. 
-This service allows developers to host static assets (images, JSON metadata) in a decentralized manner, backed by Drakernoise infrastructure.
+We provide an S3-compatible object storage service powered by **MinIO**.
+This service is intended for approved developers who need object storage behind Drakernoise infrastructure.
 
 ## Connection Details
 
 | Parameter | Value |
 | :--- | :--- |
-| **Endpoint** | `https://images.drakernoise.com` |
+| **API Endpoint** | `https://media.drakernoise.com` |
 | **Region** | `us-east-1` (Default) |
 | **SSL** | Yes (Required) |
 
 
 > [!NOTE]
-> You can verify the service status by visiting **[https://images.drakernoise.com](https://images.drakernoise.com)** in your browser to see our Developer Landing Page.
+> `images.drakernoise.com` is a public asset gateway, not the canonical S3 API endpoint.
 
 ## Access Policy
 Access is currently **Invite Only** for active Blurt developers.
@@ -27,7 +27,7 @@ import boto3
 from botocore.client import Config
 
 s3 = boto3.client('s3',
-    endpoint_url='https://images.drakernoise.com',
+    endpoint_url='https://media.drakernoise.com',
     aws_access_key_id='YOUR_ACCESS_KEY',
     aws_secret_access_key='YOUR_SECRET_KEY',
     config=Config(signature_version='s3v4')
@@ -35,7 +35,7 @@ s3 = boto3.client('s3',
 
 # Upload image
 s3.upload_file('local_image.jpg', 'public-assets', 'remote_image.jpg')
-print("Url: https://images.drakernoise.com/public-assets/remote_image.jpg")
+print("Upload completed. Public delivery URL depends on your bucket and gateway mapping.")
 ```
 
 ### JavaScript (AWS SDK v3)
@@ -44,7 +44,7 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const s3 = new S3Client({
     region: "us-east-1",
-    endpoint: "https://images.drakernoise.com",
+    endpoint: "https://media.drakernoise.com",
     credentials: {
         accessKeyId: "YOUR_ACCESS_KEY",
         secretAccessKey: "YOUR_SECRET_KEY"

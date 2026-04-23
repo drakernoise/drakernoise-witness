@@ -18,7 +18,7 @@ def main() -> int:
         description="Estimate whether it is currently safe to enable or disable a witness."
     )
     parser.add_argument("--rpc-url", default=DEFAULT_GUARD_RPC_URL)
-    parser.add_argument("--witness", default=DEFAULT_WITNESS_OWNER)
+    parser.add_argument("--witness", default=DEFAULT_WITNESS_OWNER, help="Witness account name.")
     parser.add_argument("--safe-margin-seconds", type=int, default=DEFAULT_SAFETY_SECONDS)
     parser.add_argument("--quiet", action="store_true", help="Only emit the final SAFE/UNSAFE line.")
     args = parser.parse_args()

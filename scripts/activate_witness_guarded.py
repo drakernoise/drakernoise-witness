@@ -19,10 +19,10 @@ def main() -> int:
         description="Enable a witness with a guarded schedule check before broadcasting witness_update."
     )
     parser.add_argument("--rpc-url", default=DEFAULT_GUARD_RPC_URL)
-    parser.add_argument("--witness", default=DEFAULT_WITNESS_OWNER)
+    parser.add_argument("--witness", default=DEFAULT_WITNESS_OWNER, help="Witness account name.")
     parser.add_argument("--container-name")
     parser.add_argument("--safe-margin-seconds", type=int, default=DEFAULT_SAFETY_SECONDS)
-    parser.add_argument("--signing-key", default=ACTIVE_SIGNING_KEY)
+    parser.add_argument("--signing-key", default=ACTIVE_SIGNING_KEY, help="Public witness signing key.")
     args = parser.parse_args()
 
     require_safe_window(

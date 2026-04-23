@@ -26,13 +26,16 @@ The guarded flow is built around:
 
 ## Intended Defaults
 
-- witness owner: `drakernoise`
-- witness website:
-  - `https://drakernoise.com/blurt_witness/`
 - timing RPC:
   - `https://rpc.beblurt.com`
 - safe margin:
-  - `90` seconds
+  - `45` seconds
+
+Witness-specific values are intentionally not hardcoded anymore:
+
+- `BLURT_WITNESS_OWNER`
+- `BLURT_WITNESS_URL`
+- `BLURT_ACTIVE_WITNESS_SIGNING_KEY`
 
 ## Environment Variables
 
@@ -66,6 +69,12 @@ The workflow can be adapted without editing the code:
 - `BLURT_WITNESS_BANDWIDTH_KBYTES_FEE`
 - `BLURT_WITNESS_PROPOSAL_FEE`
 
+Default note:
+
+- on Blurt, 21 witnesses x 3 seconds per slot means the maximum full rotation gap is `63` seconds
+- the safe margin must therefore stay below `63` seconds
+- the default `45` seconds is deliberate and can still be overridden per environment
+
 If `BLURT_SECRETS_FILE` is not set, the scripts will look for:
 
 - `.secrets.env`
@@ -74,13 +83,23 @@ If `BLURT_SECRETS_FILE` is not set, the scripts will look for:
 
 in the same directory as the scripts.
 
+Minimum operator configuration:
+
+- `BLURT_ACTIVE_KEY`
+- `BLURT_WITNESS_OWNER`
+- `BLURT_WITNESS_URL`
+- `BLURT_ACTIVE_WITNESS_SIGNING_KEY`
+
 ## Important Notes
 
 - The witness Active key must remain server-side only.
 - Browser-side enable/disable logic is not considered safe.
 - The guarded scripts prefer container autodetection over hardcoded container names.
+- The guard RPC must be reachable from the host where the scripts run.
+- The scripts fail fast if witness-specific values are missing instead of silently defaulting to `@drakernoise`.
 - Canonical witness props are centralized in the shared library, but they can be overridden with environment variables when the operator needs different values.
 - The scripts reset the wallet file inside the container before importing the Active key, so they do not depend on a pre-existing wallet state.
+- The helper uses `script` to run `cli_wallet` under a PTY because plain stdin piping is not reliable on every witness image.
 
 ## Legacy Script Status
 

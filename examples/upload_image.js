@@ -4,7 +4,7 @@ import path from "path";
 
 const s3 = new S3Client({
     region: "us-east-1", // MinIO requires a region, though ignored
-    endpoint: "https://images.drakernoise.com",
+    endpoint: "https://media.drakernoise.com",
     credentials: {
         accessKeyId: "YOUR_ACCESS_KEY",
         secretAccessKey: "YOUR_SECRET_KEY"
@@ -23,9 +23,9 @@ async function uploadImage(filePath) {
 
     try {
         await s3.send(command);
-        const url = `https://images.drakernoise.com/public-assets/${fileName}`;
-        console.log(`Successfully uploaded: ${url}`);
-        return url;
+        console.log(`Successfully uploaded s3://public-assets/${fileName}`);
+        console.log("Public delivery URL depends on your bucket policy and gateway mapping.");
+        return `s3://public-assets/${fileName}`;
     } catch (err) {
         console.error("Error uploading file:", err);
     }
