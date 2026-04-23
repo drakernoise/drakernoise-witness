@@ -10,6 +10,7 @@ import sys
 import tempfile
 import urllib.request
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -91,6 +92,27 @@ def resolve_secrets_file() -> Path:
     )
 
 
+@lru_cache(maxsize=1)
+def load_secrets_env() -> dict[str, str]:
+    env_path = resolve_secrets_file()
+    values: dict[str, str] = {}
+    with env_path.open("r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip()
+    return values
+
+
+def env_or_secret(env_name: str, default: str = "") -> str:
+    direct = os.getenv(env_name, "").strip()
+    if direct:
+        return direct
+    return load_secrets_env().get(env_name, "").strip() or default
+
+
 def require_setting(value: str, env_name: str) -> str:
     resolved = value.strip()
     if resolved:
@@ -104,13 +126,7 @@ def require_setting(value: str, env_name: str) -> str:
 
 def load_active_key() -> str:
     env_path = resolve_secrets_file()
-    active_key = ""
-    with env_path.open("r", encoding="utf-8") as handle:
-        for raw_line in handle:
-            line = raw_line.strip()
-            if line.startswith("BLURT_ACTIVE_KEY="):
-                active_key = line.split("=", 1)[1].strip()
-                break
+    active_key = env_or_secret("BLURT_ACTIVE_KEY")
     if not active_key:
         raise RuntimeError(f"BLURT_ACTIVE_KEY not found in {env_path}")
     return active_key
@@ -121,7 +137,7 @@ def resolve_container_name(container_name: str | None = None) -> str:
     if explicit:
         return explicit
 
-    env_name = os.getenv("BLURT_WITNESS_CONTAINER", "").strip()
+    env_name = env_or_secret("BLURT_WITNESS_CONTAINER")
     if env_name:
         return env_name
 
@@ -163,7 +179,7 @@ def resolve_container_name(container_name: str | None = None) -> str:
 def load_witness_props() -> dict[str, Any]:
     props = dict(DEFAULT_WITNESS_PROPS)
 
-    props_json = os.getenv(WITNESS_PROPS_JSON_ENV, "").strip()
+    props_json = env_or_secret(WITNESS_PROPS_JSON_ENV)
     if props_json:
         try:
             parsed = json.loads(props_json)
@@ -179,7 +195,7 @@ def load_witness_props() -> dict[str, Any]:
     # Field-by-field overrides are useful when operators want to tweak a single
     # prop without copying the entire JSON object.
     for key, env_name in WITNESS_PROP_ENV_MAP.items():
-        raw = os.getenv(env_name, "").strip()
+        raw = env_or_secret(env_name)
         if not raw:
             continue
         props[key] = int(raw) if key in INT_PROPS else raw
@@ -234,6 +250,9 @@ def compute_slot_window(
     owner: str = DEFAULT_WITNESS_OWNER,
     safe_margin_seconds: int = DEFAULT_SAFETY_SECONDS,
 ) -> SlotWindow:
+    rpc_url = env_or_secret("BLURT_GUARD_RPC_URL", rpc_url)
+    owner = env_or_secret("BLURT_WITNESS_OWNER", owner)
+    safe_margin_seconds = int(env_or_secret("BLURT_WITNESS_SAFE_MARGIN_SECONDS", str(safe_margin_seconds)))
     owner = require_setting(owner, "BLURT_WITNESS_OWNER")
     props = get_dynamic_global_properties(rpc_url)
     schedule = get_witness_schedule(rpc_url)
@@ -323,11 +342,15 @@ def cli_wallet_update_witness(
     witness_url: str = DEFAULT_WITNESS_URL,
     container_name: str | None = None,
 ) -> None:
+    owner = env_or_secret("BLURT_WITNESS_OWNER", owner)
+    witness_url = env_or_secret("BLURT_WITNESS_URL", witness_url)
+    if not signing_key.strip():
+        signing_key = env_or_secret("BLURT_ACTIVE_WITNESS_SIGNING_KEY", signing_key)
     owner = require_setting(owner, "BLURT_WITNESS_OWNER")
     witness_url = require_setting(witness_url, "BLURT_WITNESS_URL")
     signing_key = require_setting(signing_key, "BLURT_ACTIVE_WITNESS_SIGNING_KEY")
     active_key = load_active_key()
-    wallet_password = os.getenv("BLURT_WITNESS_WALLET_PASSWORD", secrets.token_urlsafe(24))
+    wallet_password = env_or_secret("BLURT_WITNESS_WALLET_PASSWORD", secrets.token_urlsafe(24))
     props_json = json.dumps(load_witness_props(), separators=(",", ":"))
     resolved_container_name = resolve_container_name(container_name)
     reset_wallet_file(resolved_container_name)

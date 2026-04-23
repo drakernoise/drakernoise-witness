@@ -10,12 +10,6 @@ The goal is to reduce the chance of losing blocks during witness toggling by che
 
 - [`scripts/witness_guard.py`](../scripts/witness_guard.py)
   - canonical CLI with `enable`, `disable` and `check` subcommands
-- [`scripts/disable_witness_guarded.py`](../scripts/disable_witness_guarded.py)
-  - compatibility wrapper for `witness_guard.py disable`
-- [`scripts/activate_witness_guarded.py`](../scripts/activate_witness_guarded.py)
-  - compatibility wrapper for `witness_guard.py enable`
-- [`scripts/check_witness_window.py`](../scripts/check_witness_window.py)
-  - compatibility wrapper for `witness_guard.py check`
 - [`scripts/witness_guard_lib.py`](../scripts/witness_guard_lib.py)
   - shared logic for schedule checks, wallet handling and `cli_wallet` execution
 - [`scripts/secrets.env.example`](../scripts/secrets.env.example)
