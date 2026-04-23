@@ -24,6 +24,10 @@ DEFAULT_GUARD_RPC_CANDIDATES = [
     "https://rpc.blurt.blog",
     "https://blurt-rpc.saboin.com",
 ]
+DEFAULT_GUARD_RPC_USER_AGENT = os.getenv(
+    "BLURT_GUARD_RPC_USER_AGENT",
+    "drakernoise-witness-guard/1.0 (+https://github.com/drakernoise/drakernoise-witness)",
+)
 DEFAULT_WITNESS_OWNER = os.getenv("BLURT_WITNESS_OWNER", "")
 DEFAULT_WITNESS_URL = os.getenv("BLURT_WITNESS_URL", "")
 DEFAULT_CONTAINER_NAME = os.getenv("BLURT_WITNESS_CONTAINER", "blurt-witness")
@@ -230,7 +234,15 @@ def load_witness_props() -> dict[str, Any]:
 
 def rpc_call(rpc_url: str, method: str, params: Any, timeout: int = 10) -> Any:
     payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode("utf-8")
-    req = urllib.request.Request(rpc_url, data=payload, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(
+        rpc_url,
+        data=payload,
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": env_or_secret("BLURT_GUARD_RPC_USER_AGENT", DEFAULT_GUARD_RPC_USER_AGENT),
+        },
+    )
     with urllib.request.urlopen(req, timeout=timeout) as response:
         data = json.loads(response.read().decode("utf-8"))
     if "error" in data:
