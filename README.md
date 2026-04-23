@@ -10,7 +10,6 @@ We provide high-performance, decentralized infrastructure for the Blurt ecosyste
 | **RPC API** | `https://rpc.drakernoise.com` | Online | Public (SSL) |
 | **S3 API** | `https://media.drakernoise.com` | Online | Invite-Only |
 | **Asset Gateway** | `https://images.drakernoise.com` | Online | Public Read |
-| **P2P Seed** | `136.243.80.162:1776` | Online | Public |
 
 ## Getting Started
 
@@ -18,7 +17,6 @@ Check out our detailed guides:
 
 - [RPC Node Documentation](docs/rpc_node.md): How to connect your dApp to our high-speed API.
 - [S3 Storage Integration](docs/s3_storage.md): Host decentralized assets using our MinIO gateway.
-- [P2P Configuration](docs/p2p_seed.md): Add our seed node to your witness config.
 - [Guarded Witness Toggle Guide](docs/witness_guard.md): Safely enable or disable a witness with schedule-aware guardrails.
 - [Witness Bootstrap Guide](docs/witness_bootstrap.md): Upgrade or bootstrap a witness using a sanitized snapshot or Saboin's presynced blockchain.
 
