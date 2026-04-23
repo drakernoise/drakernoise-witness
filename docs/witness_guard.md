@@ -71,6 +71,9 @@ The workflow can be adapted without editing the code:
   - explicit witness container name
 - `BLURT_GUARD_RPC_URL`
   - RPC endpoint used for schedule checks
+  - set it only when you want to force one specific RPC
+- `BLURT_GUARD_RPC_URLS`
+  - comma-separated candidate RPC list for automatic selection
 - `BLURT_WITNESS_OWNER`
   - witness account name
 - `BLURT_WITNESS_URL`
@@ -135,6 +138,9 @@ python3 witness_guard.py check
 python3 witness_guard.py disable
 python3 witness_guard.py enable
 ```
+
+By default, the guard will try to select the best usable RPC from its candidate list.
+Use `--rpc-url <url>` only when you want to force a specific endpoint.
 
 If autodetection does not find the correct container, either export `BLURT_WITNESS_CONTAINER` or pass it explicitly:
 

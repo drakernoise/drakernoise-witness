@@ -8,6 +8,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 from dataclasses import dataclass
 from functools import lru_cache
@@ -17,6 +18,12 @@ from typing import Any
 # These defaults are safe starting points, but operators can override them via
 # environment variables when adapting the helper to a different witness setup.
 DEFAULT_GUARD_RPC_URL = os.getenv("BLURT_GUARD_RPC_URL", "https://rpc.beblurt.com")
+DEFAULT_GUARD_RPC_CANDIDATES = [
+    "https://rpc.drakernoise.com",
+    "https://rpc.beblurt.com",
+    "https://rpc.blurt.blog",
+    "https://blurt-rpc.saboin.com",
+]
 DEFAULT_WITNESS_OWNER = os.getenv("BLURT_WITNESS_OWNER", "")
 DEFAULT_WITNESS_URL = os.getenv("BLURT_WITNESS_URL", "")
 DEFAULT_CONTAINER_NAME = os.getenv("BLURT_WITNESS_CONTAINER", "blurt-witness")
@@ -73,6 +80,12 @@ class SlotWindow:
     head_block_time: str
 
 
+@dataclass
+class RpcProbeResult:
+    rpc_url: str
+    elapsed_ms: float
+
+
 def resolve_secrets_file() -> Path:
     override = os.getenv("BLURT_SECRETS_FILE", "").strip()
     if override:
@@ -111,6 +124,18 @@ def env_or_secret(env_name: str, default: str = "") -> str:
     if direct:
         return direct
     return load_secrets_env().get(env_name, "").strip() or default
+
+
+def parse_rpc_candidates(raw: str) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for item in raw.split(","):
+        url = item.strip()
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        candidates.append(url)
+    return candidates
 
 
 def require_setting(value: str, env_name: str) -> str:
@@ -203,17 +228,17 @@ def load_witness_props() -> dict[str, Any]:
     return props
 
 
-def rpc_call(rpc_url: str, method: str, params: Any) -> Any:
+def rpc_call(rpc_url: str, method: str, params: Any, timeout: int = 10) -> Any:
     payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode("utf-8")
     req = urllib.request.Request(rpc_url, data=payload, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=10) as response:
+    with urllib.request.urlopen(req, timeout=timeout) as response:
         data = json.loads(response.read().decode("utf-8"))
     if "error" in data:
         raise RuntimeError(f"RPC error for {method}: {data['error']}")
     return data["result"]
 
 
-def get_dynamic_global_properties(rpc_url: str) -> dict[str, Any]:
+def get_dynamic_global_properties(rpc_url: str, timeout: int = 10) -> dict[str, Any]:
     attempts = [
         ("database_api.get_dynamic_global_properties", {}),
         ("condenser_api.get_dynamic_global_properties", []),
@@ -221,7 +246,7 @@ def get_dynamic_global_properties(rpc_url: str) -> dict[str, Any]:
     last_error: Exception | None = None
     for method, params in attempts:
         try:
-            result = rpc_call(rpc_url, method, params)
+            result = rpc_call(rpc_url, method, params, timeout=timeout)
             if isinstance(result, dict):
                 return result
         except Exception as exc:  # noqa: BLE001
@@ -229,7 +254,7 @@ def get_dynamic_global_properties(rpc_url: str) -> dict[str, Any]:
     raise RuntimeError(f"Unable to fetch dynamic global properties: {last_error}")
 
 
-def get_witness_schedule(rpc_url: str) -> dict[str, Any]:
+def get_witness_schedule(rpc_url: str, timeout: int = 10) -> dict[str, Any]:
     attempts = [
         ("database_api.get_witness_schedule", {}),
         ("condenser_api.get_witness_schedule", []),
@@ -237,7 +262,7 @@ def get_witness_schedule(rpc_url: str) -> dict[str, Any]:
     last_error: Exception | None = None
     for method, params in attempts:
         try:
-            result = rpc_call(rpc_url, method, params)
+            result = rpc_call(rpc_url, method, params, timeout=timeout)
             if isinstance(result, dict):
                 return result
         except Exception as exc:  # noqa: BLE001
@@ -245,12 +270,45 @@ def get_witness_schedule(rpc_url: str) -> dict[str, Any]:
     raise RuntimeError(f"Unable to fetch witness schedule: {last_error}")
 
 
+def select_guard_rpc_url(explicit_rpc_url: str = "") -> str:
+    explicit = explicit_rpc_url.strip()
+    if explicit and explicit.lower() != "auto":
+        return explicit
+
+    configured = env_or_secret("BLURT_GUARD_RPC_URL", "")
+    if configured and configured.lower() != "auto":
+        return configured
+
+    raw_candidates = env_or_secret("BLURT_GUARD_RPC_URLS", ",".join(DEFAULT_GUARD_RPC_CANDIDATES))
+    candidates = parse_rpc_candidates(raw_candidates)
+    if not candidates:
+        raise RuntimeError("No guard RPC candidates configured")
+
+    results: list[RpcProbeResult] = []
+    errors: list[str] = []
+    for rpc_url in candidates:
+        started = time.perf_counter()
+        try:
+            get_dynamic_global_properties(rpc_url, timeout=4)
+            get_witness_schedule(rpc_url, timeout=4)
+            elapsed_ms = (time.perf_counter() - started) * 1000
+            results.append(RpcProbeResult(rpc_url=rpc_url, elapsed_ms=elapsed_ms))
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{rpc_url}: {exc}")
+
+    if not results:
+        raise RuntimeError("No usable guard RPC found. " + " | ".join(errors))
+
+    results.sort(key=lambda item: item.elapsed_ms)
+    return results[0].rpc_url
+
+
 def compute_slot_window(
     rpc_url: str = DEFAULT_GUARD_RPC_URL,
     owner: str = DEFAULT_WITNESS_OWNER,
     safe_margin_seconds: int = DEFAULT_SAFETY_SECONDS,
 ) -> SlotWindow:
-    rpc_url = env_or_secret("BLURT_GUARD_RPC_URL", rpc_url)
+    rpc_url = select_guard_rpc_url(rpc_url)
     owner = env_or_secret("BLURT_WITNESS_OWNER", owner)
     safe_margin_seconds = int(env_or_secret("BLURT_WITNESS_SAFE_MARGIN_SECONDS", str(safe_margin_seconds)))
     owner = require_setting(owner, "BLURT_WITNESS_OWNER")

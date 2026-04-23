@@ -24,7 +24,11 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     def add_common_args(subparser: argparse.ArgumentParser, include_container: bool = False) -> None:
-        subparser.add_argument("--rpc-url", default=DEFAULT_GUARD_RPC_URL)
+        subparser.add_argument(
+            "--rpc-url",
+            default=DEFAULT_GUARD_RPC_URL,
+            help="RPC endpoint to force. Use 'auto' or omit it to select the best configured RPC.",
+        )
         subparser.add_argument("--witness", default=DEFAULT_WITNESS_OWNER, help="Witness account name.")
         subparser.add_argument("--safe-margin-seconds", type=int, default=DEFAULT_SAFETY_SECONDS)
         if include_container:
