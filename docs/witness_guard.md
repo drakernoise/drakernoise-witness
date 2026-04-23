@@ -6,6 +6,34 @@ This workflow exists to enable or disable the witness more safely than direct ma
 
 The goal is to reduce the chance of losing blocks during witness toggling by checking whether the current schedule window is considered safe before broadcasting a `witness_update`.
 
+## Included Scripts
+
+- [`scripts/check_witness_window.py`](../scripts/check_witness_window.py)
+  - prints the current slot window and exits with `SAFE` or `UNSAFE`
+- [`scripts/disable_witness_guarded.py`](../scripts/disable_witness_guarded.py)
+  - switches the witness to `NULL_SIGNING_KEY` only if the window is safe
+- [`scripts/activate_witness_guarded.py`](../scripts/activate_witness_guarded.py)
+  - restores the configured public signing key only if the window is safe
+- [`scripts/witness_guard_lib.py`](../scripts/witness_guard_lib.py)
+  - shared logic for schedule checks, wallet handling and `cli_wallet` execution
+- [`scripts/secrets.env.example`](../scripts/secrets.env.example)
+  - example server-side env file for the guarded scripts
+
+## Requirements
+
+The guard scripts are designed to run on the witness host or on a host that can reach the witness container directly.
+
+You need:
+
+- Python 3
+- Docker CLI access
+- a witness image that includes `cli_wallet`
+- `script` from `util-linux`
+  - used to run `cli_wallet` under a pseudo-TTY
+- a server-side env file containing your own Active key
+
+The scripts only use the Python standard library. No `pip install` step is required.
+
 ## Operational Model
 
 The guarded workflow performs these steps:
@@ -90,6 +118,44 @@ Minimum operator configuration:
 - `BLURT_WITNESS_URL`
 - `BLURT_ACTIVE_WITNESS_SIGNING_KEY`
 
+## Minimal Setup
+
+Create a local secrets file from the example:
+
+```bash
+cd scripts
+cp secrets.env.example .secrets.env
+chmod 600 .secrets.env
+```
+
+Then edit `.secrets.env` with your own values.
+
+## How To Run
+
+From the `scripts/` directory:
+
+```bash
+python3 check_witness_window.py
+python3 disable_witness_guarded.py
+python3 activate_witness_guarded.py
+```
+
+If autodetection does not find the correct container, either export `BLURT_WITNESS_CONTAINER` or pass it explicitly:
+
+```bash
+python3 disable_witness_guarded.py --container-name blurtd
+python3 activate_witness_guarded.py --container-name blurtd
+```
+
+Typical operational order:
+
+1. `python3 check_witness_window.py`
+2. `python3 disable_witness_guarded.py`
+3. perform the upgrade, replay, bootstrap or maintenance task
+4. confirm the node is healthy again
+5. `python3 check_witness_window.py`
+6. `python3 activate_witness_guarded.py`
+
 ## Important Notes
 
 - The witness Active key must remain server-side only.
@@ -100,13 +166,3 @@ Minimum operator configuration:
 - Canonical witness props are centralized in the shared library, but they can be overridden with environment variables when the operator needs different values.
 - The scripts reset the wallet file inside the container before importing the Active key, so they do not depend on a pre-existing wallet state.
 - The helper uses `script` to run `cli_wallet` under a PTY because plain stdin piping is not reliable on every witness image.
-
-## Legacy Script Status
-
-The old activation helper was retired because it relied on:
-
-- a stale public key
-- a fixed container name
-- a weaker manual flow
-
-The guarded workflow supersedes that approach.

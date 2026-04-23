@@ -17,8 +17,8 @@ Check out our detailed guides:
 
 - [RPC Node Documentation](docs/rpc_node.md): How to connect your dApp to our high-speed API.
 - [S3 Storage Integration](docs/s3_storage.md): Host decentralized assets using our MinIO gateway.
-- [Guarded Witness Toggle Guide](docs/witness_guard.md): Safely enable or disable a witness with schedule-aware guardrails.
-- [Witness Bootstrap Guide](docs/witness_bootstrap.md): Upgrade or bootstrap a witness using a sanitized snapshot or Saboin's presynced blockchain.
+- [Guarded Witness Toggle Guide](docs/witness_guard.md): Requirements, scripts and execution flow for safe witness enable / disable operations.
+- [Witness Bootstrap Guide](docs/witness_bootstrap.md): Bootstrap or upgrade a witness using a compatible presync source, including the published sanitized snapshot.
 
 ---
 

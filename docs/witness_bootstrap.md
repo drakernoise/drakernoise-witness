@@ -1,17 +1,18 @@
 # Witness Bootstrap Guide
 
-This guide shows a practical witness bootstrap flow based on:
+This guide describes a practical witness bootstrap and upgrade flow using:
 
-- Saboin's recommended 0.9.0 witness upgrade process
-- the guarded enable/disable helpers in this repository
-- an optional fast path using a prebuilt blockchain snapshot
+- the guarded enable / disable helpers in this repository
+- a compatible presynced blockchain source
+- either the published sanitized snapshot or another equivalent presync archive
 
 ## Before You Start
 
 You need:
 
 - Docker installed on the witness host
-- `lz4` installed if you use Saboin's presynced archive
+- `lz4` installed if your presync source uses `.tar.lz4`
+- `zstd` support if your snapshot uses `.tar.zst`
 - your own witness configuration values
 - your own witness Active key available only on the server
 
@@ -25,24 +26,21 @@ Important:
 
 This repository includes safer witness toggle helpers:
 
-- `scripts/check_witness_window.py`
-- `scripts/disable_witness_guarded.py`
-- `scripts/activate_witness_guarded.py`
+- [`scripts/check_witness_window.py`](../scripts/check_witness_window.py)
+- [`scripts/disable_witness_guarded.py`](../scripts/disable_witness_guarded.py)
+- [`scripts/activate_witness_guarded.py`](../scripts/activate_witness_guarded.py)
+- [`scripts/secrets.env.example`](../scripts/secrets.env.example)
 
-Prepare a local secrets file from:
-
-- `scripts/secrets.env.example`
-
-Example:
+Prepare a local secrets file:
 
 ```bash
 cp scripts/secrets.env.example scripts/.secrets.env
 chmod 600 scripts/.secrets.env
 ```
 
-Then edit it with your real values.
+Then edit it with your own values.
 
-Before any upgrade or snapshot operation:
+Before any upgrade, replay or bootstrap operation:
 
 ```bash
 cd scripts
@@ -58,23 +56,24 @@ python3 check_witness_window.py
 python3 activate_witness_guarded.py
 ```
 
-If autodetection does not find your witness container, either set
-`BLURT_WITNESS_CONTAINER` or pass `--container-name <name>` explicitly.
+If autodetection does not find your witness container, either set `BLURT_WITNESS_CONTAINER` or pass `--container-name <name>` explicitly.
 
-## Recommended Upgrade Flow
+## Recommended Bootstrap Flow
 
-Saboin's base recommendation for 0.9.0 is still solid:
+The stable pattern is:
 
 1. Disable the witness first.
-2. Pull the latest witness image.
+2. Pull the target witness image.
 3. Remove the old container.
-4. Replace the local blockchain with a presynced one.
+4. Replace the local blockchain with a compatible presynced source.
 5. Start the witness again.
 6. Re-enable the witness only after the node is healthy.
 
-## Option A: Fast Path With A Sanitized Snapshot
+The only thing that changes between environments is the source of the presynced data.
 
-Use this only with a public snapshot that contains blockchain data only and no secrets.
+## Presync Source Requirements
+
+Use only a source that contains blockchain data and no secrets.
 
 Expected contents:
 
@@ -87,11 +86,18 @@ Do not use a snapshot if it contains:
 - `logs/`
 - `p2p/`
 
-Recommended publication layout:
+Whether you use the published snapshot from this repo or another compatible archive, the restore flow is the same:
 
-Use the canonical object path under `/drakernoise/` to avoid cache edge cases on the short redirect path.
+1. stop and remove the old container
+2. clear the local blockchain data
+3. extract the presynced data into the witness volume or data dir
+4. start the witness again
+5. restore your own witness configuration
+6. re-enable signing only after health checks pass
 
-Current published snapshot:
+## Example Snapshot Source
+
+The current published snapshot for this repo is:
 
 - dated file:
   - `https://images.drakernoise.com/drakernoise/blurt/witness-snapshots/blurt-witness-blockchain-20260423-114147.tar.zst`
@@ -104,7 +110,7 @@ Current published snapshot:
 - SHA256:
   - `72a44ab2d0b4112c21a3b1cf17220af4319b48c475f35291ef844ddb2e90817d`
 
-Example restore flow:
+Example restore flow with a `.tar.zst` snapshot:
 
 ```bash
 docker pull registry.gitlab.com/blurt/blurt/witness:latest
@@ -124,21 +130,9 @@ docker run -d \
   registry.gitlab.com/blurt/blurt/witness:latest
 ```
 
-Then restore your own witness configuration.
+## Example Presync Archive With `.lz4`
 
-At minimum, your local setup must provide:
-
-- your own `config.ini`
-- your own witness name
-- your own private witness signing key
-- your own Active key for guarded enable / disable operations
-- your own witness URL
-
-Do not copy configuration files from another witness operator.
-
-## Option B: Saboin Presynced Blockchain
-
-If you prefer the upstream presync path, use Saboin's commands.
+If your chosen presync source publishes `.tar.lz4`, extract it like this.
 
 AMD64:
 
@@ -163,6 +157,18 @@ docker run -d \
   registry.gitlab.com/blurt/blurt/witness:latest
 ```
 
+## Local Configuration
+
+After restoring blockchain data, your own local setup must provide:
+
+- your own `config.ini`
+- your own witness name
+- your own private witness signing key
+- your own Active key for guarded enable / disable operations
+- your own witness URL
+
+Do not copy configuration files from another operator.
+
 ## Post-Bootstrap Checks
 
 Once the witness is running again:
@@ -180,7 +186,7 @@ You want to see:
 
 Only then re-enable witness signing.
 
-## Snapshot Publication Rules
+## Publication Rules
 
 If you publish a snapshot for other operators:
 
