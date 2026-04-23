@@ -107,12 +107,13 @@ Example restore flow with a `.tar.zst` snapshot:
 ```bash
 docker pull registry.gitlab.com/blurt/blurt/witness:latest
 docker rm -f blurtd || true
+docker volume create blurtd >/dev/null
 
-cd /var/lib/docker/volumes/blurtd/_data
-rm -rf blockchain logs p2p
+BLURTD_MOUNT=$(docker volume inspect blurtd --format '{{.Mountpoint}}')
+rm -rf "$BLURTD_MOUNT/blockchain" "$BLURTD_MOUNT/logs" "$BLURTD_MOUNT/p2p"
 
 wget --show-progress -O witness-snapshot.tar.zst <SNAPSHOT_URL>
-tar --zstd -xf witness-snapshot.tar.zst
+tar --zstd -xf witness-snapshot.tar.zst -C "$BLURTD_MOUNT"
 
 docker run -d \
   --net=host \
@@ -138,9 +139,18 @@ ARM64:
 wget --show-progress -qO- https://blurt-chain.s3.nl-ams.scw.cloud/witness-0.9.0-arm64-latest.tar.lz4 | lz4 -d | tar x
 ```
 
-Then start the container:
+Example restore flow with a `.tar.lz4` presync archive:
 
 ```bash
+docker pull registry.gitlab.com/blurt/blurt/witness:latest
+docker rm -f blurtd || true
+docker volume create blurtd >/dev/null
+
+BLURTD_MOUNT=$(docker volume inspect blurtd --format '{{.Mountpoint}}')
+rm -rf "$BLURTD_MOUNT/blockchain" "$BLURTD_MOUNT/logs" "$BLURTD_MOUNT/p2p"
+
+wget --show-progress -qO- <PRESYNC_URL> | lz4 -d | tar x -C "$BLURTD_MOUNT"
+
 docker run -d \
   --net=host \
   --log-driver=local \
