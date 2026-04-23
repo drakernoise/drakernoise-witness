@@ -8,12 +8,12 @@ The goal is to reduce the chance of losing blocks during witness toggling by che
 
 ## Included Scripts
 
-- [`scripts/check_witness_window.py`](../scripts/check_witness_window.py)
-  - prints the current slot window and exits with `SAFE` or `UNSAFE`
 - [`scripts/disable_witness_guarded.py`](../scripts/disable_witness_guarded.py)
   - switches the witness to `NULL_SIGNING_KEY` only if the window is safe
 - [`scripts/activate_witness_guarded.py`](../scripts/activate_witness_guarded.py)
   - restores the configured public signing key only if the window is safe
+- [`scripts/check_witness_window.py`](../scripts/check_witness_window.py)
+  - optional diagnostic helper that prints the current slot window and exits with `SAFE` or `UNSAFE`
 - [`scripts/witness_guard_lib.py`](../scripts/witness_guard_lib.py)
   - shared logic for schedule checks, wallet handling and `cli_wallet` execution
 - [`scripts/secrets.env.example`](../scripts/secrets.env.example)
@@ -147,14 +147,20 @@ python3 disable_witness_guarded.py --container-name blurtd
 python3 activate_witness_guarded.py --container-name blurtd
 ```
 
-Typical operational order:
+Primary operational flow:
 
-1. `python3 check_witness_window.py`
-2. `python3 disable_witness_guarded.py`
-3. perform the upgrade, replay, bootstrap or maintenance task
-4. confirm the node is healthy again
-5. `python3 check_witness_window.py`
-6. `python3 activate_witness_guarded.py`
+1. `python3 disable_witness_guarded.py`
+2. perform the upgrade, replay, bootstrap or maintenance task
+3. confirm the node is healthy again
+4. `python3 activate_witness_guarded.py`
+
+Optional diagnostic flow:
+
+```bash
+python3 check_witness_window.py
+```
+
+Use the standalone `check` helper only when you want to inspect the current slot window without changing witness state.
 
 ## Important Notes
 

@@ -26,9 +26,9 @@ Important:
 
 This repository includes safer witness toggle helpers:
 
-- [`scripts/check_witness_window.py`](../scripts/check_witness_window.py)
 - [`scripts/disable_witness_guarded.py`](../scripts/disable_witness_guarded.py)
 - [`scripts/activate_witness_guarded.py`](../scripts/activate_witness_guarded.py)
+- [`scripts/check_witness_window.py`](../scripts/check_witness_window.py)
 - [`scripts/secrets.env.example`](../scripts/secrets.env.example)
 
 Prepare a local secrets file:
@@ -44,7 +44,6 @@ Before any upgrade, replay or bootstrap operation:
 
 ```bash
 cd scripts
-python3 check_witness_window.py
 python3 disable_witness_guarded.py
 ```
 
@@ -52,11 +51,12 @@ After the node is back and stable:
 
 ```bash
 cd scripts
-python3 check_witness_window.py
 python3 activate_witness_guarded.py
 ```
 
 If autodetection does not find your witness container, either set `BLURT_WITNESS_CONTAINER` or pass `--container-name <name>` explicitly.
+
+The standalone `check_witness_window.py` helper is optional. It is useful for diagnostics, but `disable_witness_guarded.py` and `activate_witness_guarded.py` already enforce the safe-window check internally.
 
 ## Recommended Bootstrap Flow
 
