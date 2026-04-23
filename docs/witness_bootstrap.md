@@ -93,20 +93,14 @@ Whether you use the published snapshot from this repo or another compatible arch
 5. restore your own witness configuration
 6. re-enable signing only after health checks pass
 
-## Example Snapshot Source
+## Snapshot Download
 
-The current published snapshot for this repo is:
+Use the latest published snapshot:
 
-- dated file:
-  - `https://images.drakernoise.com/drakernoise/blurt/witness-snapshots/blurt-witness-blockchain-20260423-114147.tar.zst`
-- dated checksum:
-  - `https://images.drakernoise.com/drakernoise/blurt/witness-snapshots/blurt-witness-blockchain-20260423-114147.tar.zst.sha256`
-- stable latest file:
+- snapshot:
   - `https://images.drakernoise.com/drakernoise/blurt/witness-snapshots/latest-blockchain.tar.zst`
-- stable latest checksum:
+- checksum:
   - `https://images.drakernoise.com/drakernoise/blurt/witness-snapshots/latest-blockchain.tar.zst.sha256`
-- SHA256:
-  - `72a44ab2d0b4112c21a3b1cf17220af4319b48c475f35291ef844ddb2e90817d`
 
 Example restore flow with a `.tar.zst` snapshot:
 
