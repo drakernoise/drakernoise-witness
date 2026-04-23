@@ -8,12 +8,14 @@ The goal is to reduce the chance of losing blocks during witness toggling by che
 
 ## Included Scripts
 
+- [`scripts/witness_guard.py`](../scripts/witness_guard.py)
+  - canonical CLI with `enable`, `disable` and `check` subcommands
 - [`scripts/disable_witness_guarded.py`](../scripts/disable_witness_guarded.py)
-  - switches the witness to `NULL_SIGNING_KEY` only if the window is safe
+  - compatibility wrapper for `witness_guard.py disable`
 - [`scripts/activate_witness_guarded.py`](../scripts/activate_witness_guarded.py)
-  - restores the configured public signing key only if the window is safe
+  - compatibility wrapper for `witness_guard.py enable`
 - [`scripts/check_witness_window.py`](../scripts/check_witness_window.py)
-  - optional diagnostic helper that prints the current slot window and exits with `SAFE` or `UNSAFE`
+  - compatibility wrapper for `witness_guard.py check`
 - [`scripts/witness_guard_lib.py`](../scripts/witness_guard_lib.py)
   - shared logic for schedule checks, wallet handling and `cli_wallet` execution
 - [`scripts/secrets.env.example`](../scripts/secrets.env.example)
@@ -135,29 +137,29 @@ Then edit `.secrets.env` with your own values.
 From the `scripts/` directory:
 
 ```bash
-python3 check_witness_window.py
-python3 disable_witness_guarded.py
-python3 activate_witness_guarded.py
+python3 witness_guard.py check
+python3 witness_guard.py disable
+python3 witness_guard.py enable
 ```
 
 If autodetection does not find the correct container, either export `BLURT_WITNESS_CONTAINER` or pass it explicitly:
 
 ```bash
-python3 disable_witness_guarded.py --container-name blurtd
-python3 activate_witness_guarded.py --container-name blurtd
+python3 witness_guard.py disable --container-name blurtd
+python3 witness_guard.py enable --container-name blurtd
 ```
 
 Primary operational flow:
 
-1. `python3 disable_witness_guarded.py`
+1. `python3 witness_guard.py disable`
 2. perform the upgrade, replay, bootstrap or maintenance task
 3. confirm the node is healthy again
-4. `python3 activate_witness_guarded.py`
+4. `python3 witness_guard.py enable`
 
 Optional diagnostic flow:
 
 ```bash
-python3 check_witness_window.py
+python3 witness_guard.py check
 ```
 
 Use the standalone `check` helper only when you want to inspect the current slot window without changing witness state.
